@@ -16,6 +16,7 @@ class FileItem extends Model
     protected static string $disk;
 
     protected static string $path;
+    protected static string $test;
 
     protected array $schema = [
         'name' => 'string',
@@ -26,6 +27,7 @@ class FileItem extends Model
 
     public static function queryForDiskAndPath(string $disk = 'public', string $path = ''): Builder
     {
+
         static::$disk = $disk;
         static::$path = $path;
 
