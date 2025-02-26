@@ -13,20 +13,30 @@ class FileItem extends Model
 {
     use Sushi;
 
-    protected static string $disk;
+    // Instead of a disk name, we store the built disk instance.
+    protected static $diskInstance;
 
     protected static string $path;
 
     protected array $schema = [
-        'name' => 'string',
+        'name'         => 'string',
         'dateModified' => 'datetime',
-        'size' => 'integer',
-        'type' => 'string',
+        'size'         => 'integer',
+        'type'         => 'string',
     ];
 
-    public static function queryForDiskAndPath(string $disk = 'public', string $path = ''): Builder
+    /**
+     * Accepts a disk configuration array and a path.
+     * For example:
+     * [
+     *    'driver' => 'local',
+     *    'root'   => storage_path('app/public'),
+     * ]
+     */
+    public static function queryForDiskAndPath(array $diskConfig, string $path = ''): Builder
     {
-        static::$disk = $disk;
+        // Build the disk dynamically using the provided configuration.
+        static::$diskInstance = Storage::build($diskConfig);
         static::$path = $path;
 
         return static::query();
@@ -35,7 +45,7 @@ class FileItem extends Model
     public function isFolder(): bool
     {
         return $this->type === 'Folder'
-            && is_dir(Storage::disk(static::$disk)->path($this->path));
+            && is_dir(static::$diskInstance->path($this->path));
     }
 
     public function isPreviousPath(): bool
@@ -46,59 +56,59 @@ class FileItem extends Model
     public function delete(): bool
     {
         if ($this->isFolder()) {
-            return Storage::disk(static::$disk)->deleteDirectory($this->path);
+            return static::$diskInstance->deleteDirectory($this->path);
         }
 
-        return Storage::disk(static::$disk)->delete($this->path);
+        return static::$diskInstance->delete($this->path);
     }
 
     public function canOpen(): bool
     {
         return $this->type !== 'Folder'
-            && Storage::disk(static::$disk)->exists($this->path)
-            && Storage::disk(static::$disk)->getVisibility($this->path) === FilesystemContract::VISIBILITY_PUBLIC;
+            && static::$diskInstance->exists($this->path)
+            && static::$diskInstance->getVisibility($this->path) === FilesystemContract::VISIBILITY_PUBLIC;
     }
 
     public function getRows(): array
     {
         $backPath = [];
         if (self::$path) {
-            $path = Str::of(self::$path)->explode('/');
+            $pathSegments = Str::of(self::$path)->explode('/');
 
             $backPath = [
                 [
-                    'name' => '..',
+                    'name'         => '..',
                     'dateModified' => null,
-                    'size' => null,
-                    'type' => 'Folder',
-                    'path' => $path->count() > 1 ? $path->take($path->count() - 1)->join('/') : '',
+                    'size'         => null,
+                    'type'         => 'Folder',
+                    'path'         => $pathSegments->count() > 1
+                        ? $pathSegments->take($pathSegments->count() - 1)->join('/')
+                        : '',
                 ],
             ];
         }
 
-        $storage = Storage::disk(static::$disk);
+        $storage = static::$diskInstance;
 
         return collect($backPath)->push(
             ...collect($storage->directories(static::$path))
                 ->sort()
                 ->map(fn (string $directory): array => [
-                    'name' => Str::remove(self::$path.'/', $directory),
+                    'name'         => Str::remove(self::$path . '/', $directory),
                     'dateModified' => $storage->lastModified($directory),
-                    'size' => null,
-                    'type' => 'Folder',
-                    'path' => $directory,
-                ]
-                ),
+                    'size'         => null,
+                    'type'         => 'Folder',
+                    'path'         => $directory,
+                ]),
             ...collect($storage->files(static::$path))
                 ->sort()
                 ->map(fn (string $file): array => [
-                    'name' => Str::remove(self::$path.'/', $file),
+                    'name'         => Str::remove(self::$path . '/', $file),
                     'dateModified' => $storage->lastModified($file),
-                    'size' => $storage->size($file),
-                    'type' => $storage->mimeType($file) ?: null,
-                    'path' => $file,
-                ]
-                )
+                    'size'         => $storage->size($file),
+                    'type'         => $storage->mimeType($file) ?: null,
+                    'path'         => $file,
+                ])
         )->toArray();
     }
 }
