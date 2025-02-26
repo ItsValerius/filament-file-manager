@@ -28,19 +28,38 @@ class FileManager extends Page implements HasTable
 
     protected static string $view = 'filament-file-manager::pages.file-manager';
 
-    protected string $disk = 'public';
+    // Define the disk configuration property
+    protected array $diskConfig;
 
     #[Url(except: '')]
     public string $path = '';
 
     protected $listeners = ['updatePath' => '$refresh'];
 
+    // Add a constructor or mount method to initialize the disk config
+    public function mount(array $diskConfig = [])
+    {
+
+        $this->diskConfig = $diskConfig ?: [
+            'driver' => 'local',
+            'root' => storage_path('app/public'),
+        ];
+
+    }
+
+    // Add a getter for diskConfig
+    public function getDiskConfig(): array
+    {
+        return $this->diskConfig;
+    }
+
     public function table(Table $table): Table
     {
         return $table
             ->heading($this->path ?: 'Root')
             ->query(
-                FileItem::queryForDiskAndPath($this->disk, $this->path)
+
+                FileItem::queryForDiskAndPath($this->getDiskConfig(), $this->path)
             )
             ->paginated(false)
             ->columns([
@@ -70,13 +89,13 @@ class FileManager extends Page implements HasTable
                 ViewAction::make('open')
                     ->label('Open')
                     ->hidden(fn (FileItem $record): bool => ! $record->canOpen())
-                    ->url(fn (FileItem $record): string => Storage::disk($this->disk)->url($record->path))
+                    ->url(fn (FileItem $record): string => Storage::build($this->getDiskConfig())->url($record->path))
                     ->openUrlInNewTab(),
                 Action::make('download')
                     ->label('Download')
                     ->icon('heroicon-o-document-arrow-down')
                     ->hidden(fn (FileItem $record): bool => $record->isFolder())
-                    ->action(fn (FileItem $record) => Storage::disk($this->disk)->download($record->path)),
+                    ->action(fn (FileItem $record) => Storage::build($this->getDiskConfig())->download($record->path)),
                 DeleteAction::make('delete')
                     ->successNotificationTitle('File deleted')
                     ->hidden(fn (FileItem $record): bool => $record->isPreviousPath())
@@ -84,7 +103,6 @@ class FileManager extends Page implements HasTable
                         if ($record->delete()) {
                             $action->sendSuccessNotification();
                         }
-
                     }),
             ])
             ->bulkActions([
@@ -112,7 +130,7 @@ class FileManager extends Page implements HasTable
                     ])
                     ->successNotificationTitle('Folder created')
                     ->action(function (array $data, Component $livewire, Action $action): void {
-                        Storage::disk($livewire->disk)
+                        Storage::build($this->getDiskConfig())
                             ->makeDirectory($livewire->path.'/'.$data['name']);
 
                         $this->resetTable();
@@ -129,7 +147,7 @@ class FileManager extends Page implements HasTable
                             ->multiple()
                             ->previewable(false)
                             ->preserveFilenames()
-                            ->disk($this->disk)
+                            ->disk(config('filament-file-manager.disk', 'public'))
                             ->directory($this->path),
                     ]),
             ]);
