@@ -2,7 +2,7 @@
 
 namespace BostjanOb\FilamentFileManager\Model;
 
-use Illuminate\Contracts\Filesystem\Filesystem as FilesystemContract;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
@@ -14,15 +14,15 @@ class FileItem extends Model
     use Sushi;
 
     // Instead of a disk name, we store the built disk instance.
-    protected static $diskInstance;
+    protected static Filesystem $diskInstance;
 
     protected static string $path;
 
     protected array $schema = [
-        'name'         => 'string',
+        'name' => 'string',
         'dateModified' => 'datetime',
-        'size'         => 'integer',
-        'type'         => 'string',
+        'size' => 'integer',
+        'type' => 'string',
     ];
 
     /**
@@ -33,10 +33,10 @@ class FileItem extends Model
      *    'root'   => storage_path('app/public'),
      * ]
      */
-    public static function queryForDiskAndPath(array $diskConfig, string $path = ''): Builder
+    public static function queryForDiskAndPath(FileSystem $disk, string $path = ''): Builder
     {
         // Build the disk dynamically using the provided configuration.
-        static::$diskInstance = Storage::build($diskConfig);
+        static::$diskInstance = ($disk);
         static::$path = $path;
 
         return static::query();
@@ -44,8 +44,9 @@ class FileItem extends Model
 
     public function isFolder(): bool
     {
+
         return $this->type === 'Folder'
-            && is_dir(static::$diskInstance->path($this->path));
+            && static::$diskInstance->exists(($this->path));
     }
 
     public function isPreviousPath(): bool
@@ -66,7 +67,7 @@ class FileItem extends Model
     {
         return $this->type !== 'Folder'
             && static::$diskInstance->exists($this->path)
-            && static::$diskInstance->getVisibility($this->path) === FilesystemContract::VISIBILITY_PUBLIC;
+            && static::$diskInstance->getVisibility($this->path) === FileSystem::VISIBILITY_PUBLIC;
     }
 
     public function getRows(): array
@@ -77,11 +78,11 @@ class FileItem extends Model
 
             $backPath = [
                 [
-                    'name'         => '..',
+                    'name' => '..',
                     'dateModified' => null,
-                    'size'         => null,
-                    'type'         => 'Folder',
-                    'path'         => $pathSegments->count() > 1
+                    'size' => null,
+                    'type' => 'Folder',
+                    'path' => $pathSegments->count() > 1
                         ? $pathSegments->take($pathSegments->count() - 1)->join('/')
                         : '',
                 ],
@@ -94,20 +95,20 @@ class FileItem extends Model
             ...collect($storage->directories(static::$path))
                 ->sort()
                 ->map(fn (string $directory): array => [
-                    'name'         => Str::remove(self::$path . '/', $directory),
+                    'name' => Str::remove(self::$path.'/', $directory),
                     'dateModified' => $storage->lastModified($directory),
-                    'size'         => null,
-                    'type'         => 'Folder',
-                    'path'         => $directory,
+                    'size' => null,
+                    'type' => 'Folder',
+                    'path' => $directory,
                 ]),
             ...collect($storage->files(static::$path))
                 ->sort()
                 ->map(fn (string $file): array => [
-                    'name'         => Str::remove(self::$path . '/', $file),
+                    'name' => Str::remove(self::$path.'/', $file),
                     'dateModified' => $storage->lastModified($file),
-                    'size'         => $storage->size($file),
-                    'type'         => $storage->mimeType($file) ?: null,
-                    'path'         => $file,
+                    'size' => $storage->size($file),
+                    'type' => $storage->mimeType($file) ?: null,
+                    'path' => $file,
                 ])
         )->toArray();
     }

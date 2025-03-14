@@ -14,6 +14,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Number;
@@ -30,6 +31,8 @@ class FileManager extends Page implements HasTable
 
     // Define the disk configuration property
     protected array $diskConfig;
+
+    protected Filesystem $disk;
 
     #[Url(except: '')]
     public string $path = '';
@@ -50,7 +53,13 @@ class FileManager extends Page implements HasTable
     // Add a getter for diskConfig
     public function getDiskConfig(): array
     {
+
         return $this->diskConfig;
+    }
+
+    public function getDisk(): Filesystem
+    {
+        return $this->disk;
     }
 
     public function table(Table $table): Table
@@ -59,7 +68,7 @@ class FileManager extends Page implements HasTable
             ->heading($this->path ?: 'Root')
             ->query(
 
-                FileItem::queryForDiskAndPath($this->getDiskConfig(), $this->path)
+                FileItem::queryForDiskAndPath($this->getDisk(), $this->path)
             )
             ->paginated(false)
             ->columns([
@@ -75,7 +84,6 @@ class FileManager extends Page implements HasTable
                     ->action(function (FileItem $record) {
                         if ($record->isFolder()) {
                             $this->path = $record->path;
-
                             $this->dispatch('updatePath');
                         }
                     }),
