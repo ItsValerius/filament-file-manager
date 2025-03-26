@@ -103,7 +103,15 @@ class FileItem extends Model
      * Instead of enumerating directories/files individually,
      * we make ONE call to `listContents()` to get an array
      * of StorageAttributes (which already contain size, timestamps, etc.).
+     * @return array<int, array{
+     *     name: string,
+     *     dateModified: ?\Carbon\Carbon,
+     *     size: ?int,
+     *     type: string,
+     *     path: string
+     * }>
      */
+
     public function getRows(): array
     {
         $disk = static::$diskInstance;
@@ -131,7 +139,7 @@ class FileItem extends Model
 
         // Convert the items into arrays for Sushi:
         $mapped = collect($items)
-            ->sortBy(fn (StorageAttributes $attr) => basename($attr->path())) // Sort by name if you like
+            ->sortBy(fn(StorageAttributes $attr) => basename($attr->path())) // Sort by name if you like
             ->map(function (StorageAttributes $attr) {
                 $isFile = $attr->isFile();
 
@@ -154,5 +162,4 @@ class FileItem extends Model
         // Return the "go up" entry (if any) plus the real listing:
         return array_merge($backPath, $mapped);
     }
-   
 }
