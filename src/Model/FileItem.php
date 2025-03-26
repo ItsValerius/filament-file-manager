@@ -13,6 +13,12 @@ use Sushi\Sushi;
 /**
  * A Sushi-powered Eloquent model that holds a transient "listing" of
  * files/folders from OneDrive (or any disk) for display in Filament.
+ *
+ * @property string           $name
+ * @property \Carbon\Carbon|null $dateModified
+ * @property int|null         $size
+ * @property string           $type
+ * @property string           $path
  */
 class FileItem extends Model
 {
