@@ -154,7 +154,7 @@ class FileItem extends Model
         // Return the "go up" entry (if any) plus the real listing:
         return array_merge($backPath, $mapped);
     }
-    public static function getPath(): string
+    public function getPath(): string
     {
         return static::$path;
     }
